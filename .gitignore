@@ -181,7 +181,13 @@ bin/
 
 # OSが生成するファイル
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Icon?
 
 # 依存関係
 vendor/
