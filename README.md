@@ -14,6 +14,11 @@
 
 - [get_Total_Rain_from_EPA5.py の使用方法](./doc/get_Total_Rain_from_EPA5.md)
 
+## セキュリティ注意事項
+
+- CDS APIの認証情報は `$HOME/.cdsapirc` ファイルに保存し、決してソースコードやバージョン管理システムにコミットしないでください
+- `.cdsapirc` ファイルのパーミッションは `600`（所有者のみ読み書き可能）に設定することを推奨します
+
 ## ライセンス
 
 MIT License

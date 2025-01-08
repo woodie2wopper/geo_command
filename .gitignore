@@ -189,3 +189,9 @@ node_modules/
 
 # ログファイル
 *.log
+
+# API認証情報
+.cdsapirc
+*apirc
+.env
+credentials.json
