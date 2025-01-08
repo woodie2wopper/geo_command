@@ -169,3 +169,23 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# バイナリファイル
+bin/
+*.exe
+*.out
+
+# 一時ファイル
+*.tmp
+*~
+
+# OSが生成するファイル
+.DS_Store
+Thumbs.db
+
+# 依存関係
+vendor/
+node_modules/
+
+# ログファイル
+*.log
