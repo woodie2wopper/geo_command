@@ -19,14 +19,14 @@ class ERA5RainRetriever:
     MESH_SIZE_KM = 20  # メッシュサイズを20kmに設定
     
     def __init__(self, year: int, debug: bool = False):
-        self.script_dir = Path(__file__).parent.resolve()
-        self.base_dir = self.script_dir.parent / 'data' / str(year)
+        # カレントディレクトリを基準に設定
+        self.base_dir = Path.cwd() / 'data' / str(year)
         self.year = year
         self.debug = debug
         self.setup_directories()
         self.setup_logging()
         self.processed_meshes = {}
-        
+    
     def setup_directories(self):
         """必要なディレクトリを作成"""
         dirs = ['output', 'netcdf', 'csv', 'temp']
@@ -125,23 +125,23 @@ class ERA5RainRetriever:
     def process_precipitation_data(
         self, nc_file: Path, lat: float, lon: float
     ) -> Tuple[np.ndarray, float]:
-        """降水量データを処理
-        
-        Args:
-            nc_file: NetCDFファイルパス
-            lat: 緯度
-            lon: 経度
-            
-        Returns:
-            月別降水量と年間総降水量のタプル
-        """
+        """降水量データを処理"""
         ds = xr.open_dataset(nc_file)
-        precip = ds['tp'].values * 1000 * 24 * 30  # m to mm/month
         
-        lat_idx = abs(ds.latitude - lat).argmin()
-        lon_idx = abs(ds.longitude - lon).argmin()
+        # データの形状を確認してログに出力
+        logging.debug(f"Data shape: {ds['tp'].values.shape}")
         
-        monthly_precip = precip[:, lat_idx, lon_idx]
+        # 1次元の場合の処理
+        if len(ds['tp'].values.shape) == 1:
+            precip = ds['tp'].values * 1000 * 24 * 30  # m to mm/month
+            monthly_precip = precip
+        else:
+            # 3次元（時間、緯度、経度）の場合の処理
+            precip = ds['tp'].values * 1000 * 24 * 30  # m to mm/month
+            lat_idx = abs(ds.latitude - lat).argmin()
+            lon_idx = abs(ds.longitude - lon).argmin()
+            monthly_precip = precip[:, lat_idx, lon_idx]
+        
         annual_precip = np.sum(monthly_precip)
         
         ds.close()
@@ -191,15 +191,46 @@ class ERA5RainRetriever:
         """
         input_path = Path(input_file)
         if not input_path.is_absolute():
-            input_path = self.script_dir / input_path
+            input_path = Path.cwd() / input_path
 
         if not input_path.exists():
             raise FileNotFoundError(f"入力ファイルが見つかりません: {input_path}")
 
+        # CSVファイルを読み込み
         df = pd.read_csv(input_path)
+        
+        # ヘッダー名のマッピング
+        header_mapping = {
+            'No': ['No', 'no', 'ID', 'id', 'index'],
+            'lat1': ['lat1', 'lat', 'latitude', 'Latitude', 'LAT'],
+            'lon1': ['lon1', 'lon', 'longitude', 'Longitude', 'LON']
+        }
+        
+        # 必要なカラムの存在確認と名前の標準化
+        column_mapping = {}
+        for required_col, possible_names in header_mapping.items():
+            found_col = None
+            for col_name in possible_names:
+                if col_name in df.columns:
+                    found_col = col_name
+                    break
+            
+            if found_col is None:
+                raise ValueError(f"必要なカラム {required_col} が見つかりません。以下のいずれかの名前が必要です: {possible_names}")
+            
+            column_mapping[found_col] = required_col
+        
+        # カラム名を標準化
+        df = df.rename(columns=column_mapping)
+        
+        # デバッグモードの場合は最初の5行のみ処理
         if self.debug:
             df = df.head(5)
             logging.info("Running in debug mode with 5 locations")
+        
+        # インデックスがない場合は追加
+        if 'No' not in df.columns:
+            df['No'] = range(len(df))
         
         for _, location in df.iterrows():
             try:
@@ -221,6 +252,7 @@ class ERA5RainRetriever:
                 
             except Exception as e:
                 logging.error(f"Error processing location {location['No']}: {str(e)}")
+                logging.error(f"Details: lat={location['lat1']}, lon={location['lon1']}")
                 continue
 
 def main():
@@ -229,12 +261,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 入力CSVファイル形式:
-  以下のヘッダーを持つCSVファイルが必要です：
-    No,lat1,lon1,location_name
+  以下のいずれかのヘッダーを持つCSVファイルが必要です：
+    - ID/インデックス列: No, no, ID, id, index
+    - 緯度列: lat1, lat, latitude, Latitude, LAT
+    - 経度列: lon1, lon, longitude, Longitude, LON
   
-  例：
+  例1：
     No,lat1,lon1,location_name
     0,43.0621,141.3544,札幌市中央区
+  
+  例2：
+    id,latitude,longitude,name
     1,35.6895,139.6917,東京都新宿区
         """
     )
@@ -243,7 +280,7 @@ def main():
     parser.add_argument('-y', '--year', type=int, default=2010,
                       help='処理する年（デフォルト：2010）')
     parser.add_argument('-i', '--input', type=str, 
-                      default=str(Path(__file__).parent / 'doc' / 'test_latlon.csv'),
+                      default='test_latlon.csv',
                       help='緯度経度データを含む入力CSVファイル（ヘッダー: No,lat1,lon1,location_name）')
     
     args = parser.parse_args()
