@@ -33,7 +33,8 @@ class ERA5RainRetriever:
     
     def setup_directories(self):
         """必要なディレクトリを作成"""
-        dirs = ['output', 'netcdf', 'csv', 'temp']
+        # outputディレクトリを削除し、必要なディレクトリのみ作成
+        dirs = ['netcdf', 'csv', 'temp']
         for dir_name in dirs:
             (self.base_dir / dir_name).mkdir(parents=True, exist_ok=True)
     
@@ -199,8 +200,23 @@ class ERA5RainRetriever:
     def save_all_results(self):
         """全地点の結果をまとめたCSVファイルを保存"""
         if self.all_results:
-            df = pd.DataFrame(self.all_results)
-            output_file = self.base_dir / f"precipitation_results_{self.year}.csv"
+            # 月別データのDataFrame
+            monthly_df = pd.DataFrame([
+                result for result in self.all_results 
+                if result['Month'] != 'Annual'
+            ])
+            
+            # 年間データを計算
+            annual_df = monthly_df.groupby(['No', 'Latitude', 'Longitude', 'Location', 'Year'])[
+                'Total Precipitation (mm)'
+            ].sum().reset_index()
+            annual_df['Month'] = 'Annual'
+            
+            # 月別と年間データを結合
+            df = pd.concat([monthly_df, annual_df], ignore_index=True)
+            
+            # csvディレクトリ内に保存
+            output_file = self.base_dir / 'csv' / f"precipitation_results_{self.year}.csv"
             df.to_csv(output_file, index=False)
             logging.info(f"Saved combined results to {output_file}")
 
