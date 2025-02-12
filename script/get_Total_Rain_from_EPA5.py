@@ -18,15 +18,18 @@ class ERA5RainRetriever:
     
     MESH_SIZE_KM = 20  # メッシュサイズを20kmに設定
     
-    def __init__(self, year: int, debug: bool = False):
+    def __init__(self, year: int, input_file: str, debug: bool = False):
+        # 入力ファイル名からベース名を取得（拡張子を除く）
+        input_base = Path(input_file).stem
+        
         # カレントディレクトリを基準に設定
-        self.base_dir = Path.cwd() / 'data' / str(year)
+        self.base_dir = Path.cwd() / 'data' / input_base
         self.year = year
         self.debug = debug
         self.setup_directories()
         self.setup_logging()
         self.processed_meshes = {}
-        self.all_results = []  # 全地点の結果を保存するリスト
+        self.all_results = []
     
     def setup_directories(self):
         """必要なディレクトリを作成"""
@@ -294,6 +297,10 @@ def main():
   例2：
     id,latitude,longitude,name
     1,35.6895,139.6917,東京都新宿区
+
+出力ディレクトリ:
+  入力ファイル名をベースにディレクトリが作成されます
+  例: test_2010.csv → ./data/test_2010/
         """
     )
     parser.add_argument('-d', '--debug', action='store_true',
@@ -307,7 +314,7 @@ def main():
     args = parser.parse_args()
     
     try:
-        retriever = ERA5RainRetriever(args.year, args.debug)
+        retriever = ERA5RainRetriever(args.year, args.input, args.debug)
         retriever.process_locations(args.input)
     except Exception as e:
         logging.error(f"エラーが発生しました: {str(e)}")
