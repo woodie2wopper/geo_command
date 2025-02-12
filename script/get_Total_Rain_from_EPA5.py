@@ -26,6 +26,7 @@ class ERA5RainRetriever:
         self.setup_directories()
         self.setup_logging()
         self.processed_meshes = {}
+        self.all_results = []  # 全地点の結果を保存するリスト
     
     def setup_directories(self):
         """必要なディレクトリを作成"""
@@ -150,12 +151,7 @@ class ERA5RainRetriever:
     def save_results(
         self, results: Tuple[np.ndarray, float], location: Dict
     ) -> None:
-        """結果をCSVファイルに保存
-        
-        Args:
-            results: 月別降水量と年間総降水量のタプル
-            location: 位置情報を含む辞書
-        """
+        """結果をCSVファイルに保存"""
         monthly_precip, annual_precip = results
         data = []
         
@@ -165,7 +161,19 @@ class ERA5RainRetriever:
                 'No': location['No'],
                 'Latitude': location['lat1'],
                 'Longitude': location['lon1'],
+                'Location': location.get('location_name', ''),
                 'Month': month,
+                'Total Precipitation (mm)': precip
+            })
+            
+            # 全地点の結果リストに追加
+            self.all_results.append({
+                'No': location['No'],
+                'Latitude': location['lat1'],
+                'Longitude': location['lon1'],
+                'Location': location.get('location_name', ''),
+                'Month': month,
+                'Year': self.year,
                 'Total Precipitation (mm)': precip
             })
         
@@ -174,15 +182,25 @@ class ERA5RainRetriever:
             'No': location['No'],
             'Latitude': location['lat1'],
             'Longitude': location['lon1'],
+            'Location': location.get('location_name', ''),
             'Month': 'Annual',
             'Total Precipitation (mm)': annual_precip
         })
         
+        # 個別地点のCSVファイルを保存
         df = pd.DataFrame(data)
         output_file = self.base_dir / 'csv' / f"precip_location_{location['No']}.csv"
         df.to_csv(output_file, index=False)
         logging.info(f"Saved results for location {location['No']}")
-    
+
+    def save_all_results(self):
+        """全地点の結果をまとめたCSVファイルを保存"""
+        if self.all_results:
+            df = pd.DataFrame(self.all_results)
+            output_file = self.base_dir / f"precipitation_results_{self.year}.csv"
+            df.to_csv(output_file, index=False)
+            logging.info(f"Saved combined results to {output_file}")
+
     def process_locations(self, input_file: str) -> None:
         """位置データを処理
         
@@ -254,6 +272,9 @@ class ERA5RainRetriever:
                 logging.error(f"Error processing location {location['No']}: {str(e)}")
                 logging.error(f"Details: lat={location['lat1']}, lon={location['lon1']}")
                 continue
+        
+        # 全地点の処理が終わった後に結果をまとめて保存
+        self.save_all_results()
 
 def main():
     parser = argparse.ArgumentParser(
