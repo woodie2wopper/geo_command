@@ -230,31 +230,43 @@ class ERA5RainRetriever:
         
         logging.info(f"\n全地点数: {total_locations}")
         
-        # 出力ファイルのパス
-        output_file = self.base_dir / 'csv' / f"precipitation_results_{self.year}.csv"
+        # CSVディレクトリのパス
+        csv_dir = self.base_dir / 'csv'
         
-        if not output_file.exists():
-            logging.info(f"出力ファイルが存在しません。全{total_locations}地点を処理する必要があります。")
+        if not csv_dir.exists():
+            logging.info(f"出力ディレクトリが存在しません。全{total_locations}地点を処理する必要があります。")
             return input_df
         
-        # 既存の出力を読み込み
-        output_df = pd.read_csv(output_file)
+        # 処理済みの地点を特定（個別ファイルの存在確認）
+        processed_locations = []
+        for _, row in input_df.iterrows():
+            location_file = csv_dir / f"precip_location_{row['No']}.csv"
+            if location_file.exists():
+                processed_locations.append({
+                    'No': row['No'],
+                    'lat1': row['lat1'],
+                    'lon1': row['lon1']
+                })
         
-        # 処理済みの地点を特定（Annualデータがある地点）
-        processed_locations = output_df[output_df['Month'] == 'Annual'][['No', 'Latitude', 'Longitude']]
         processed_count = len(processed_locations)
         
-        # 未処理の地点を特定
-        missing_df = input_df.merge(
-            processed_locations,
-            left_on=['No', 'lat1', 'lon1'],
-            right_on=['No', 'Latitude', 'Longitude'],
-            how='left',
-            indicator=True
-        )
+        # 処理済み地点をDataFrameに変換
+        if processed_locations:
+            processed_df = pd.DataFrame(processed_locations)
+            
+            # 未処理の地点を特定
+            missing_df = input_df.merge(
+                processed_df,
+                on=['No', 'lat1', 'lon1'],
+                how='left',
+                indicator=True
+            )
+            
+            # _mergeカラムが'left_only'の行が未処理地点
+            missing_df = missing_df[missing_df['_merge'] == 'left_only'].drop('_merge', axis=1)
+        else:
+            missing_df = input_df
         
-        # _mergeカラムが'left_only'の行が未処理地点
-        missing_df = missing_df[missing_df['_merge'] == 'left_only'].drop('_merge', axis=1)
         missing_count = len(missing_df)
         
         if missing_count > 0:
@@ -332,9 +344,11 @@ class ERA5RainRetriever:
         if 'No' not in df.columns:
             df['No'] = range(len(df))
         
-        # 進捗バーを追加
+        # 進捗バーを追加（残り時間の推定を含む）
         total = len(df)
-        with tqdm(total=total, desc="処理中") as pbar:
+        with tqdm(total=total, desc="処理中", unit="地点", 
+                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} 地点'
+                 ' [{elapsed}<{remaining}, {rate_fmt}{postfix}]') as pbar:
             for _, location in df.iterrows():
                 try:
                     mesh_id = self.get_mesh_id(location['lat1'], location['lon1'])
@@ -361,7 +375,8 @@ class ERA5RainRetriever:
                     pbar.update(1)  # 進捗バーを更新
                     pbar.set_postfix({
                         'Location': f"{location.get('location_name', 'N/A')}",
-                        'No': location['No']
+                        'No': location['No'],
+                        '完了': f"{pbar.n/total*100:.1f}%"
                     })
         
         # 全地点の処理が終わった後に結果をまとめて保存
