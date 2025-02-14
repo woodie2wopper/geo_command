@@ -220,12 +220,42 @@ class ERA5RainRetriever:
             df.to_csv(output_file, index=False)
             logging.info(f"Saved combined results to {output_file}")
 
-    def process_locations(self, input_file: str) -> None:
-        """位置データを処理
+    def check_missing_locations(self, input_file: str) -> pd.DataFrame:
+        """未取得地点を特定"""
+        # 入力ファイルの読み込み
+        input_df = pd.read_csv(input_file)
         
-        Args:
-            input_file: 入力CSVファイルパス
-        """
+        # 出力ファイルのパス
+        output_file = self.base_dir / 'csv' / f"precipitation_results_{self.year}.csv"
+        
+        if not output_file.exists():
+            return input_df  # 出力ファイルがない場合は全地点を処理
+        
+        # 既存の出力を読み込み
+        output_df = pd.read_csv(output_file)
+        
+        # 処理済みの地点を特定（Annualデータがある地点）
+        processed_locations = output_df[output_df['Month'] == 'Annual'][['No', 'Latitude', 'Longitude']]
+        
+        # 未処理の地点を特定
+        missing_df = input_df.merge(
+            processed_locations,
+            left_on=['No', 'lat1', 'lon1'],
+            right_on=['No', 'Latitude', 'Longitude'],
+            how='left',
+            indicator=True
+        )
+        
+        # _mergeカラムが'left_only'の行が未処理地点
+        missing_df = missing_df[missing_df['_merge'] == 'left_only'].drop('_merge', axis=1)
+        
+        if len(missing_df) > 0:
+            logging.info(f"Found {len(missing_df)} unprocessed locations")
+        
+        return missing_df
+
+    def process_locations(self, input_file: str, resume: bool = False) -> None:
+        """位置データを処理"""
         input_path = Path(input_file)
         if not input_path.is_absolute():
             input_path = Path.cwd() / input_path
@@ -233,9 +263,15 @@ class ERA5RainRetriever:
         if not input_path.exists():
             raise FileNotFoundError(f"入力ファイルが見つかりません: {input_path}")
 
-        # CSVファイルを読み込み
-        df = pd.read_csv(input_path)
-        
+        # resumeモードの場合は未取得地点のみを処理
+        if resume:
+            df = self.check_missing_locations(input_path)
+            if len(df) == 0:
+                logging.info("All locations have been processed")
+                return
+        else:
+            df = pd.read_csv(input_path)
+
         # ヘッダー名のマッピング
         header_mapping = {
             'No': ['No', 'no', 'ID', 'id', 'index'],
@@ -326,12 +362,14 @@ def main():
     parser.add_argument('-i', '--input', type=str, 
                       default='test_latlon.csv',
                       help='緯度経度データを含む入力CSVファイル（ヘッダー: No,lat1,lon1,location_name）')
+    parser.add_argument('-r', '--resume', action='store_true',
+                      help='未取得地点のみを処理する')
     
     args = parser.parse_args()
     
     try:
         retriever = ERA5RainRetriever(args.year, args.input, args.debug)
-        retriever.process_locations(args.input)
+        retriever.process_locations(args.input, args.resume)
     except Exception as e:
         logging.error(f"エラーが発生しました: {str(e)}")
         sys.exit(1)
