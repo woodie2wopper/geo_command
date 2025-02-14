@@ -13,6 +13,7 @@ from typing import Dict, Tuple, List
 import shutil
 import sys
 import time
+from tqdm import tqdm
 
 class ERA5RainRetriever:
     """ERA5降水量データ取得クラス"""
@@ -331,28 +332,37 @@ class ERA5RainRetriever:
         if 'No' not in df.columns:
             df['No'] = range(len(df))
         
-        for _, location in df.iterrows():
-            try:
-                mesh_id = self.get_mesh_id(location['lat1'], location['lon1'])
-                
-                if mesh_id in self.processed_meshes:
-                    # 同じメッシュ内のデータを再利用
-                    nc_file = self.processed_meshes[mesh_id]
-                else:
-                    nc_file = self.download_era5_data(
-                        mesh_id, location['lat1'], location['lon1']
+        # 進捗バーを追加
+        total = len(df)
+        with tqdm(total=total, desc="処理中") as pbar:
+            for _, location in df.iterrows():
+                try:
+                    mesh_id = self.get_mesh_id(location['lat1'], location['lon1'])
+                    
+                    if mesh_id in self.processed_meshes:
+                        # 同じメッシュ内のデータを再利用
+                        nc_file = self.processed_meshes[mesh_id]
+                    else:
+                        nc_file = self.download_era5_data(
+                            mesh_id, location['lat1'], location['lon1']
+                        )
+                        self.processed_meshes[mesh_id] = nc_file
+                    
+                    results = self.process_precipitation_data(
+                        nc_file, location['lat1'], location['lon1']
                     )
-                    self.processed_meshes[mesh_id] = nc_file
-                
-                results = self.process_precipitation_data(
-                    nc_file, location['lat1'], location['lon1']
-                )
-                self.save_results(results, location)
-                
-            except Exception as e:
-                logging.error(f"Error processing location {location['No']}: {str(e)}")
-                logging.error(f"Details: lat={location['lat1']}, lon={location['lon1']}")
-                continue
+                    self.save_results(results, location)
+                    
+                except Exception as e:
+                    logging.error(f"Error processing location {location['No']}: {str(e)}")
+                    logging.error(f"Details: lat={location['lat1']}, lon={location['lon1']}")
+                    continue
+                finally:
+                    pbar.update(1)  # 進捗バーを更新
+                    pbar.set_postfix({
+                        'Location': f"{location.get('location_name', 'N/A')}",
+                        'No': location['No']
+                    })
         
         # 全地点の処理が終わった後に結果をまとめて保存
         self.save_all_results()
