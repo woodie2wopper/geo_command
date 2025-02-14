@@ -91,41 +91,58 @@ class ERA5RainRetriever:
         return f"{lat:.4f}_{lon:.4f}_20km"
     
     def download_era5_data(self, mesh_id: str, lat: float, lon: float) -> Path:
-        """ERA5データをダウンロード
-        
-        Args:
-            mesh_id: メッシュID
-            lat: 緯度
-            lon: 経度
-            
-        Returns:
-            ダウンロードしたファイルのパス
-        """
+        """ERA5データをダウンロード"""
         c = cdsapi.Client()
         output_file = self.base_dir / 'netcdf' / f'precip_{mesh_id}.nc'
         
         # メッシュの境界を計算
         north, west, south, east = self.calculate_mesh_bounds(lat, lon)
         
+        if output_file.exists():
+            # 既存ファイルが0バイトの場合は削除
+            if output_file.stat().st_size == 0:
+                output_file.unlink()
+        
         if not output_file.exists():
             request_params = {
-                'product_type': 'monthly_averaged_reanalysis',
+                'format': 'netcdf',
+                'product_type': 'reanalysis-monthly-means-of-daily-means',
                 'variable': 'total_precipitation',
                 'year': str(self.year),
                 'month': [f"{i:02d}" for i in range(1, 13)],
-                'time': '00:00',
+                'time': ['00:00'],
                 'area': [
-                    north, west, south, east
+                    round(float(north), 4),
+                    round(float(west), 4),
+                    round(float(south), 4),
+                    round(float(east), 4)
                 ],
+                'grid': [0.25, 0.25],
                 'format': 'netcdf'
             }
             
-            c.retrieve(
-                'reanalysis-era5-single-levels-monthly-means',
-                request_params,
-                str(output_file)
-            )
-            logging.info(f"Downloaded data for mesh {mesh_id} at ({lat}, {lon})")
+            try:
+                # デバッグ情報の出力
+                logging.debug(f"Requesting ERA5 data with parameters: {request_params}")
+                
+                c.retrieve(
+                    'reanalysis-era5-single-levels-monthly-means',
+                    request_params,
+                    str(output_file)
+                )
+                
+                # ダウンロード後の検証
+                if not output_file.exists() or output_file.stat().st_size == 0:
+                    raise FileNotFoundError(f"ダウンロードしたファイルが見つからないか空です: {output_file}")
+                
+                logging.info(f"Downloaded data for mesh {mesh_id} at ({lat}, {lon})")
+                logging.debug(f"File size: {output_file.stat().st_size} bytes")
+                
+            except Exception as e:
+                logging.error(f"Download failed for mesh {mesh_id}: {str(e)}")
+                if output_file.exists():
+                    output_file.unlink()
+                raise
         
         return output_file
     
