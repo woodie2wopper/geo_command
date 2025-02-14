@@ -1,97 +1,80 @@
-# ERA5降水量データ取得ツール 仕様書
+# ERA5降水量データ取得ツール
 
 ## 概要
-`get_Total_Rain_from_EPA5.py`は、指定された緯度経度の位置における月別・年間降水量をERA5データセットから取得し、結果をCSVファイルに保存するPythonスクリプトです。
-
-## 特徴
-- ERA5再解析データから月別降水量を取得
-- バッチ処理による複数地点の効率的な処理
-- 30kmメッシュによるデータ集約
-- NetCDFとCSV形式でのデータ保存
-- 同一メッシュ内のデータキャッシング機能
-- デバッグモード搭載
-
-## 必要条件
-1. CDS APIアカウントと設定
-2. 必要なPythonパッケージ：
-   - cdsapi
-   - pandas
-   - xarray
-   - numpy
-
-## インストール方法
-1. CDS API認証情報を`$HOME/.cdsapirc`に設定
-2. 必要なPythonパッケージをインストール：
-```bash
-pip install cdsapi pandas xarray
-```
+ERA5の月別再解析データから指定地点の降水量データを取得し、CSVファイルとして保存するツールです。
 
 ## 使用方法
-基本的なコマンド形式：
+
 ```bash
-python get_Total_Rain_from_EPA5.py [-h] [-d] [-y 年] [-i 入力ファイル]
+get_Total_Rain_from_EPA5.py [-h] [-d] [-y YEAR] [-i INPUT] [-r] [--dry-run]
 ```
 
-引数：
-- `-d, --debug`: デバッグモード（5地点のみ処理）
-- `-y, --year`: 処理する年（デフォルト：2010）
-- `-i, --input`: 緯度経度データを含む入力CSVファイル（デフォルト：test_latlon.csv）
+### オプション
+- `-h, --help`: ヘルプメッセージを表示
+- `-d, --debug`: デバッグモード（最初の5地点のみ処理）
+- `-y YEAR, --year YEAR`: 処理する年（デフォルト：2010）
+- `-i INPUT, --input INPUT`: 入力CSVファイル（デフォルト：test_latlon.csv）
+- `-r, --resume`: 未取得地点のみを処理
+- `--dry-run`: 未取得地点の確認のみを行い、データは取得しない
 
-実行例：
-```bash
-# 2010年のテストデータを処理
-python get_Total_Rain_from_EPA5.py -i test_latlon.csv -y 2010
+### 入力ファイル形式
+以下のいずれかのヘッダーを持つCSVファイルが必要です：
+- ID/インデックス列: `No`, `no`, `ID`, `id`, `index`
+- 緯度列: `lat1`, `lat`, `latitude`, `Latitude`, `LAT`
+- 経度列: `lon1`, `lon`, `longitude`, `Longitude`, `LON`
+- 地点名列（オプション）: `location_name`
 
-# 2015年のデータをデバッグモードで処理
-python get_Total_Rain_from_EPA5.py -d -y 2015
-```
-
-## 入力ファイル形式
-CSVファイルは以下の列を含む必要があります：
+例：
 ```csv
 No,lat1,lon1,location_name
 0,43.0621,141.3544,札幌市中央区
-...
+1,35.6895,139.6917,東京都新宿区
 ```
 
-## 出力構造
+### 出力ディレクトリ構造
+入力ファイル名をベースにディレクトリが作成されます。
+例：`test_2010.csv` → `./data/test_2010/`
+
 ```
-../data/
-  ├── YYYY/              # 年ディレクトリ
-  │   ├── output/        # 集計結果
-  │   ├── netcdf/        # NetCDFファイル
-  │   └── csv/           # 個別CSVファイル
-  └── temp/              # 一時ファイル
+data/
+└── [入力ファイル名]/
+    ├── csv/
+    │   ├── precip_location_0.csv  # 地点ごとの降水量データ
+    │   ├── precip_location_1.csv
+    │   └── ...
+    ├── netcdf/  # ERA5データのキャッシュ
+    ├── temp/    # 一時ファイル
+    ├── missing_locations.csv  # 未取得地点リスト
+    └── processing.log        # 処理ログ
 ```
 
-### CSV出力形式
-個別地点ファイル（csv/precip_location_X.csv）：
-```csv
-No,Latitude,Longitude,Month,Total Precipitation (mm)
-X,緯度,経度,1,降水量
-...
-X,緯度,経度,12,降水量
-X,緯度,経度,Annual,年間総量
-```
+### 出力ファイル形式（地点ごと）
+各地点のCSVファイルには以下の列が含まれます：
+- `No`: 地点番号
+- `Latitude`: 緯度
+- `Longitude`: 経度
+- `Location`: 地点名（入力ファイルに含まれる場合）
+- `Month`: 月（1-12）または'Annual'
+- `Total Precipitation (mm)`: 月間または年間降水量
 
-## メッシュシステム
-- 30kmメッシュによるデータ集約
-- メッシュサイズ：
-  - 緯度：0.27度（≈30km 南北）
-  - 経度：0.37度（≈30km 東西、北緯43度付近）
+## 処理の流れ
+1. 入力CSVファイルから地点情報を読み込み
+2. 未取得地点の確認（`--resume`または`--dry-run`オプション使用時）
+3. 20kmメッシュ単位でERA5データをダウンロード
+4. 各地点の降水量を計算
+5. 結果をCSVファイルに保存
 
 ## エラー処理
-- ダウンロードデータの整合性検証
-- 安全なファイル操作
-- 詳細なエラーメッセージ
-- 一時ファイルの自動クリーンアップ
+- 地点ごとにエラーが発生した場合でも処理を継続
+- エラーが発生した地点は処理ログに記録
+- `--resume`オプションで未取得地点の再処理が可能
+
+## 進捗表示
+- 処理中の地点数と推定残り時間を表示
+- 現在の地点情報と完了率をリアルタイム表示
+- ログファイルに詳細な処理状況を記録
 
 ## 注意事項
-- データソース：Copernicus Climate Data StoreのERA5月平均データ
-- 降水量の単位はミリメートル（mm）に変換
-- 同一メッシュ内の地点は既存データを再利用してAPI呼び出しを削減
-
-## セキュリティ注意事項
-
-- CDS APIの認証情報は `$HOME/.cdsapirc` ファイルに保存し、決してソースコードやバージョン管理システムにコミットしないでください
-- `.cdsapirc` ファイルのパーミッションは `600`（所有者のみ読み書き可能）に設定することを推奨します
+- ERA5データの取得にはCDSのアカウントとAPIキーが必要
+- `~/.cdsapirc`に適切なAPI設定が必要
+- 大量の地点を処理する場合は`--resume`オプションの使用を推奨
