@@ -138,17 +138,27 @@ class ERA5RainRetriever:
         # データの形状を確認してログに出力
         logging.debug(f"Data shape: {ds['tp'].values.shape}")
         
-        # 1次元の場合の処理
-        if len(ds['tp'].values.shape) == 1:
-            precip = ds['tp'].values * 1000 * 24 * 30  # m to mm/month
-            monthly_precip = precip
-        else:
-            # 3次元（時間、緯度、経度）の場合の処理
-            precip = ds['tp'].values * 1000 * 24 * 30  # m to mm/month
+        # データの次元に応じて処理を分岐
+        data_shape = ds['tp'].values.shape
+        
+        if len(data_shape) == 2:  # [time, point] or [lat, lon]
+            if 'latitude' in ds.dims:
+                # 緯度経度の2次元の場合
+                lat_idx = abs(ds.latitude - lat).argmin()
+                lon_idx = abs(ds.longitude - lon).argmin()
+                precip = ds['tp'].values[lat_idx, lon_idx]
+            else:
+                # 時間と1地点の2次元の場合
+                precip = ds['tp'].values[:, 0]
+        elif len(data_shape) == 3:  # [time, lat, lon]
             lat_idx = abs(ds.latitude - lat).argmin()
             lon_idx = abs(ds.longitude - lon).argmin()
-            monthly_precip = precip[:, lat_idx, lon_idx]
+            precip = ds['tp'].values[:, lat_idx, lon_idx]
+        else:  # 1次元 or その他
+            precip = ds['tp'].values
         
+        # 単位変換: m/day → mm/month
+        monthly_precip = precip * 1000 * 24 * 30
         annual_precip = np.sum(monthly_precip)
         
         ds.close()
