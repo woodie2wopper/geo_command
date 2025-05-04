@@ -201,3 +201,6 @@ node_modules/
 *apirc
 .env
 credentials.json
+
+.specstory/
+.cursorindexingignore
