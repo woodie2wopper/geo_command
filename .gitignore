@@ -206,5 +206,5 @@ credentials.json
 .cursorindexingignore
 
 # テストデータ
-tests/latlon_to_kml/
+tests/
 output.kml
