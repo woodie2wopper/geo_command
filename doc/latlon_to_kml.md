@@ -70,7 +70,7 @@ python script/latlon_to_kml.py [オプション]
 ```
 
 #### オプション
-- `--input-csv`, `-ic`: 入力CSVファイルのパス（必須、複数指定可能）
+- `--input-csv`, `-ic`: 入力CSVファイルのパス（必須、複数指定可能、-を指定すると標準入力から読み込み）
 - `--input-template`, `-it`: カスタムKMLテンプレートファイルのパス（オプション）
 - `--output`, `-o`: 出力ファイルのパス（オプション、指定しない場合は標準出力）
 
@@ -87,6 +87,15 @@ python script/latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv -
 
 # 短いオプション名を使用
 python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests/latlon_to_kml/second_data.csv -o output.kml
+
+# 標準入力から読み込み（テストデータを使用）
+cat tests/latlon_to_kml/normal_data.csv | python script/latlon_to_kml.py -ic - -o stdin_output.kml
+
+# ファイルと標準入力の組み合わせ（テストデータを使用）
+cat tests/latlon_to_kml/second_data.csv | python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic - -o combined_output.kml
+
+# エラーデータの標準入力テスト
+cat tests/latlon_to_kml/error_data.csv | python script/latlon_to_kml.py -ic - -o error_output.kml 2> error.log
 ```
 
 ## プログラムの詳細
@@ -197,6 +206,7 @@ python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests
    - 正常なCSVファイルからKMLを生成
    - 複数のCSVファイルを合成
    - 色の指定（CSVのcolor列）
+   - 標準入力からの読み込み
 
 2. **テストデータ**
    - テストデータは `tests/latlon_to_kml/` ディレクトリに配置されています：
@@ -214,12 +224,22 @@ python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests
 
    # 複数CSVファイルの合成テスト
    python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests/latlon_to_kml/second_data.csv -o output.kml
+
+   # 標準入力からの読み込みテスト
+   cat tests/latlon_to_kml/normal_data.csv | python script/latlon_to_kml.py -ic - -o stdin_output.kml
+
+   # ファイルと標準入力の組み合わせテスト
+   cat tests/latlon_to_kml/second_data.csv | python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic - -o combined_output.kml
+
+   # エラーデータの標準入力テスト
+   cat tests/latlon_to_kml/error_data.csv | python script/latlon_to_kml.py -ic - -o error_output.kml 2> error.log
    ```
 
 4. **出力の検証**
    - 生成されたKMLファイルの構造が正しいこと
    - 指定された色が正しく反映されていること
    - 複数CSVファイルが正しく合成されていること
+   - 標準入力からのデータが正しく処理されていること
 
 ## エラーハンドリング
 プログラムは以下のエラーケースを適切に処理します：
