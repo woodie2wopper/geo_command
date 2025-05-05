@@ -117,8 +117,8 @@ def process_csv_file(csv_file: str) -> tuple[List[str], List[str]]:
 
 def main():
     parser = argparse.ArgumentParser(description='CSVファイルからKMLファイルを生成します。')
-    parser.add_argument('--input-csv', '-ic', action='append', nargs='?', const='-',
-                      help='入力CSVファイルのパス（複数指定可能、-を指定すると標準入力から読み込み）')
+    parser.add_argument('--input-csv', '-ic', action='append', nargs='*',
+                      help='入力CSVファイルのパス（複数指定可能、省略時は標準入力から読み込み）')
     parser.add_argument('--input-template', '-it',
                       help='カスタムKMLテンプレートファイルのパス')
     parser.add_argument('--output', '-o',
@@ -126,10 +126,9 @@ def main():
 
     args = parser.parse_args()
 
-    # 入力ソースの確認
+    # 入力ソースの確認と標準入力の設定
     if not args.input_csv:
-        print("エラー: 入力ソースが指定されていません。", file=sys.stderr)
-        sys.exit(1)
+        args.input_csv = ['-']  # 標準入力をデフォルトとして設定
 
     # テンプレートの読み込み
     template = DEFAULT_TEMPLATE
