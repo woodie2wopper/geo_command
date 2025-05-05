@@ -1,0 +1,290 @@
+# lanlng_to_kml.py 仕様書
+
+## 概要
+`lanlng_to_kml.py` は、CSVファイルに含まれる地名（`name`）、緯度（`lat`）、経度（`lon`）の情報をもとに、KML（Keyhole Markup Language）フォーマットのXMLファイルを生成するPythonスクリプトです。生成されたKMLファイルは、Google EarthやGoogle Mapsなどで地図上に地点をプロットするために使用できます。
+
+## 機能
+- CSVファイルから地点情報（`name`, `lat`, `lon`）を読み取る。
+- 読み取った情報をKMLフォーマットに変換。
+- 変換後のKMLファイルを標準出力または指定されたファイルに出力。
+
+## 入力
+1. **CSVファイル**
+   - 入力としてCSVファイルを使用。
+   - CSVファイルのフォーマットは以下の通り：
+     ```
+     name,lat,lon[,elevation][,color]
+     ```
+   - `name`: 地点の名前（文字列）
+   - `lat`: 地点の緯度（数値）
+   - `lon`: 地点の経度（数値）
+   - `elevation`: 標高（オプション、数値、メートル単位）
+   - `color`: アイコンの色（オプション、16進数カラーコード）
+
+   **例:**
+   ```csv
+   name,lat,lon,elevation,color
+   観察地点1,35.6585,139.7454,100.5,ff0000ff
+   観察地点2,35.6586,139.7514,150.2,ffff0000
+   ```
+
+2. **KMLテンプレート（オプション）**
+   - カスタムKMLテンプレートを指定可能
+   - 指定しない場合はデフォルトテンプレートを使用
+
+## 出力
+- **KMLファイル**
+  - 出力はデフォルトで標準出力
+  - オプションでファイル出力も可能
+  - KMLファイルの構造において、各地点が`<Placemark>`タグで表現され、`<coordinates>`タグ内に経度と緯度が記載されます。
+  
+  **例:**
+  ```xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <KML xmlns="http://www.opengis.net/kml/2.2">
+    <Document>
+      <name>調査地点</name>
+      
+      <Placemark>
+        <name>観察地点1</name>
+        <Point>
+          <coordinates>139.7454,35.6585</coordinates>
+        </Point>
+      </Placemark>
+      
+      <Placemark>
+        <name>観察地点2</name>
+        <Point>
+          <coordinates>139.7514,35.6586</coordinates>
+        </Point>
+      </Placemark>
+    </Document>
+  </KML>
+  ```
+
+## 使用方法
+
+### コマンドライン引数
+```bash
+python lanlng_to_kml.py [オプション]
+```
+
+#### オプション
+- `--input-csv`, `-ic`: 入力CSVファイルのパス（必須、複数指定可能）
+- `--input-template`, `-it`: カスタムKMLテンプレートファイルのパス（オプション）
+- `--output`, `-o`: 出力ファイルのパス（オプション、指定しない場合は標準出力）
+
+#### 使用例
+```bash
+# 基本的な使用方法（標準出力）
+python lanlng_to_kml.py --input-csv data.csv
+
+# 複数のCSVファイルを指定
+python lanlng_to_kml.py --input-csv data1.csv --input-csv data2.csv
+
+# カスタムテンプレートと出力ファイルを指定
+python lanlng_to_kml.py --input-csv data.csv --input-template custom_template.xml --output output.kml
+
+# 短いオプション名を使用
+python lanlng_to_kml.py -ic data1.csv -ic data2.csv -o output.kml
+```
+
+## プログラムの詳細
+
+1. **コマンドライン引数の処理**:
+   - `argparse`モジュールを使用して、コマンドライン引数を処理します。
+
+2. **CSVファイルの読み込み**:
+   - `csv.DictReader`を使用して、CSVファイルを読み込みます。各行の`name`, `lat`, `lon`のデータを辞書として処理します。
+
+3. **KMLテンプレートの読み込み**:
+   - 指定されたテンプレートファイルを読み込みます。
+   - テンプレートが指定されていない場合は、デフォルトテンプレートを使用します。
+
+4. **Placemarkタグの作成**:
+   - `create_placemark()`関数により、各地点の`<Placemark>`タグを動的に生成します。
+
+5. **KMLファイルの出力**:
+   - 指定された出力ファイルに書き込むか、標準出力に出力します。
+
+## デフォルトKMLテンプレート
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<KML xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>調査地点</name>
+    {styles}
+    {placemarks}
+  </Document>
+</KML>
+```
+
+## アイコン設定
+- アイコンの色は以下の優先順位で決定されます：
+  1. CSVファイルの`color`列で指定された色（各地点ごとに個別に指定可能）
+  2. デフォルトの色（赤 #ff0000ff）
+
+- 色の指定方法：
+  - 16進数カラーコード（例: ff0000ff）
+  - 最初の2桁: アルファ値（透明度）
+  - 次の2桁: 青
+  - 次の2桁: 緑
+  - 最後の2桁: 赤
+
+## 標高の扱い
+- 標高（elevation）が指定された場合、coordinatesタグに標高値が追加されます。
+- 標高の単位はメートルです。
+- 標高が指定されていない場合は、0として扱われます。
+
+## 複数CSVファイルの合成
+- 複数のCSVファイルを指定して、1つのKMLファイルに合成できます。
+- 各CSVファイルのアイコン色は、CSVファイルの`color`列で指定された色を使用します。
+- `color`列が指定されていない場合は、デフォルトの色（赤 #ff0000ff）を使用します。
+
+## 出力例（複数CSVファイルの場合）
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<KML xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>調査地点（複数データセット）</name>
+
+    <!-- スタイル設定 -->
+    <Style id="icon1">
+      <IconStyle>
+        <color>ff0000ff</color>
+        <scale>1.0</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+
+    <Style id="icon2">
+      <IconStyle>
+        <color>ffff0000</color>
+        <scale>1.0</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/blue-circle.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+
+    <!-- 地点情報（データセット1） -->
+    <Placemark>
+      <name>観察地点1（データセット1）</name>
+      <styleUrl>#icon1</styleUrl>
+      <Point>
+        <coordinates>139.7454,35.6585,100.5</coordinates>
+      </Point>
+    </Placemark>
+
+    <!-- 地点情報（データセット2） -->
+    <Placemark>
+      <name>観察地点1（データセット2）</name>
+      <styleUrl>#icon2</styleUrl>
+      <Point>
+        <coordinates>139.7514,35.6586,150.2</coordinates>
+      </Point>
+    </Placemark>
+  </Document>
+</KML>
+```
+
+## 備考
+- 出力されるKMLファイルは、Google MapsやGoogle Earthで利用できます。`name`で地点名が表示され、`coordinates`で緯度経度がプロットされます。
+- CSVファイルには、必ず`name`, `lat`, `lon`の列が含まれている必要があります。列名が異なる場合、プログラム内の対応部分を調整してください。
+- カスタムテンプレートを使用する場合は、`{placemarks}`というプレースホルダーを含める必要があります。
+
+## エラーハンドリング
+プログラムは以下のエラーケースを適切に処理します：
+
+1. **入力ファイル関連のエラー**
+   - CSVファイルが存在しない場合
+     - エラーメッセージ: "エラー: 入力ファイル '{ファイルパス}' が見つかりません。"
+     - 終了コード: 1
+   - CSVファイルの読み取り権限がない場合
+     - エラーメッセージ: "エラー: 入力ファイル '{ファイルパス}' の読み取り権限がありません。"
+     - 終了コード: 1
+   - テンプレートファイルが存在しない場合
+     - エラーメッセージ: "エラー: テンプレートファイル '{ファイルパス}' が見つかりません。"
+     - 終了コード: 1
+
+2. **CSVフォーマット関連のエラー**
+   - 必須フィールド（name, lat, lon）が欠けている場合
+     - エラーメッセージ: "エラー: CSVファイルに必須フィールド '{フィールド名}' がありません。"
+     - 終了コード: 2
+   - 緯度経度の値が不正な場合
+     - エラーメッセージ: "エラー: 行 {行番号} の緯度経度の値が不正です。"
+     - 終了コード: 2
+   - 色の指定が不正な場合
+     - エラーメッセージ: "エラー: 行 {行番号} の色の指定が不正です。"
+     - 終了コード: 2
+
+3. **出力関連のエラー**
+   - 出力ファイルの書き込み権限がない場合
+     - エラーメッセージ: "エラー: 出力ファイル '{ファイルパス}' の書き込み権限がありません。"
+     - 終了コード: 3
+
+## ログ出力
+プログラムは以下の情報をログとして出力します：
+
+1. **標準出力（stdout）**
+   - 処理の開始
+     ```
+     処理を開始します: {入力ファイル数} 個のCSVファイルを処理します。
+     ```
+   - 各CSVファイルの処理状況
+     ```
+     {ファイル名} を処理中... ({現在の行数}/{総行数} 行)
+     ```
+   - 処理の完了
+     ```
+     処理が完了しました: {出力ファイル名}
+     ```
+
+2. **標準エラー（stderr）**
+   - 警告メッセージ
+     ```
+     警告: {警告内容}
+     ```
+   - エラーメッセージ
+     ```
+     エラー: {エラー内容}
+     ```
+
+3. **ログレベル**
+   - INFO: 通常の処理情報
+   - WARNING: 警告（処理は継続）
+   - ERROR: エラー（処理を中断）
+
+## テスト
+プログラムの動作を確認するため、以下のテストを実装します：
+
+1. **基本的なテストケース**
+   - 正常なCSVファイルからKMLを生成
+   - 複数のCSVファイルを合成
+   - 色の指定（CSVのcolor列）
+
+2. **テストデータ**
+   ```csv
+   # 正常系
+   name,lat,lon,elevation,color
+   観察地点1,35.6585,139.7454,100.5,ff0000ff
+   観察地点2,35.6586,139.7514,150.2,ffff0000
+
+   # 異常系（エラーハンドリング確認用）
+   name,lat,lon
+   観察地点1,91,181  # 不正な緯度経度
+   ```
+
+3. **テスト実行方法**
+   ```bash
+   # テストの実行
+   python -m pytest tests/
+   ```
+
+4. **出力の検証**
+   - 生成されたKMLファイルの構造が正しいこと
+   - 指定された色が正しく反映されていること
+   - 複数CSVファイルが正しく合成されていること
+
