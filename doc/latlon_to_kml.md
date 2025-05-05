@@ -66,7 +66,7 @@
 
 ### コマンドライン引数
 ```bash
-python lanlng_to_kml.py [オプション]
+python script/latlon_to_kml.py [オプション]
 ```
 
 #### オプション
@@ -77,16 +77,16 @@ python lanlng_to_kml.py [オプション]
 #### 使用例
 ```bash
 # 基本的な使用方法（標準出力）
-python lanlng_to_kml.py --input-csv data.csv
+python script/latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv
 
 # 複数のCSVファイルを指定
-python lanlng_to_kml.py --input-csv data1.csv --input-csv data2.csv
+python script/latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv --input-csv tests/latlon_to_kml/second_data.csv
 
 # カスタムテンプレートと出力ファイルを指定
-python lanlng_to_kml.py --input-csv data.csv --input-template custom_template.xml --output output.kml
+python script/latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv --input-template custom_template.xml --output output.kml
 
 # 短いオプション名を使用
-python lanlng_to_kml.py -ic data1.csv -ic data2.csv -o output.kml
+python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests/latlon_to_kml/second_data.csv -o output.kml
 ```
 
 ## プログラムの詳細
@@ -190,10 +190,36 @@ python lanlng_to_kml.py -ic data1.csv -ic data2.csv -o output.kml
 </KML>
 ```
 
-## 備考
-- 出力されるKMLファイルは、Google MapsやGoogle Earthで利用できます。`name`で地点名が表示され、`coordinates`で緯度経度がプロットされます。
-- CSVファイルには、必ず`name`, `lat`, `lon`の列が含まれている必要があります。列名が異なる場合、プログラム内の対応部分を調整してください。
-- カスタムテンプレートを使用する場合は、`{placemarks}`というプレースホルダーを含める必要があります。
+## テスト
+プログラムの動作を確認するため、以下のテストを実装します：
+
+1. **基本的なテストケース**
+   - 正常なCSVファイルからKMLを生成
+   - 複数のCSVファイルを合成
+   - 色の指定（CSVのcolor列）
+
+2. **テストデータ**
+   - テストデータは `tests/latlon_to_kml/` ディレクトリに配置されています：
+     - `normal_data.csv`: 正常系のテストデータ
+     - `error_data.csv`: 異常系のテストデータ
+     - `second_data.csv`: 複数CSVファイルの合成テスト用データ
+
+3. **テスト実行方法**
+   ```bash
+   # 基本的なテスト
+   python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -o output.kml
+
+   # エラーハンドリングテスト
+   python script/latlon_to_kml.py -ic tests/latlon_to_kml/error_data.csv -o output.kml
+
+   # 複数CSVファイルの合成テスト
+   python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests/latlon_to_kml/second_data.csv -o output.kml
+   ```
+
+4. **出力の検証**
+   - 生成されたKMLファイルの構造が正しいこと
+   - 指定された色が正しく反映されていること
+   - 複数CSVファイルが正しく合成されていること
 
 ## エラーハンドリング
 プログラムは以下のエラーケースを適切に処理します：
@@ -256,35 +282,4 @@ python lanlng_to_kml.py -ic data1.csv -ic data2.csv -o output.kml
    - INFO: 通常の処理情報
    - WARNING: 警告（処理は継続）
    - ERROR: エラー（処理を中断）
-
-## テスト
-プログラムの動作を確認するため、以下のテストを実装します：
-
-1. **基本的なテストケース**
-   - 正常なCSVファイルからKMLを生成
-   - 複数のCSVファイルを合成
-   - 色の指定（CSVのcolor列）
-
-2. **テストデータ**
-   ```csv
-   # 正常系
-   name,lat,lon,elevation,color
-   観察地点1,35.6585,139.7454,100.5,ff0000ff
-   観察地点2,35.6586,139.7514,150.2,ffff0000
-
-   # 異常系（エラーハンドリング確認用）
-   name,lat,lon
-   観察地点1,91,181  # 不正な緯度経度
-   ```
-
-3. **テスト実行方法**
-   ```bash
-   # テストの実行
-   python -m pytest tests/
-   ```
-
-4. **出力の検証**
-   - 生成されたKMLファイルの構造が正しいこと
-   - 指定された色が正しく反映されていること
-   - 複数CSVファイルが正しく合成されていること
 

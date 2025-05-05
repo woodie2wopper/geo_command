@@ -7,12 +7,14 @@
 | コマンド名 | 用途 |
 |------------|------|
 | get_Total_Rain_from_EPA5.py | ERA5データセットから指定地点の月別・年間降水量を取得し、CSVファイルに出力します。30kmメッシュ単位でデータをキャッシュし、効率的な処理を実現します。 |
+| latlon_to_kml.py | CSVファイルに含まれる地名、緯度、経度の情報からKMLファイルを生成します。Google EarthやGoogle Mapsで地図上に地点をプロットするために使用できます。 |
 
 ## ドキュメント
 
 各コマンドの詳細な使用方法は `./doc/` ディレクトリ内のドキュメントを参照してください。
 
 - [get_Total_Rain_from_EPA5.py の使用方法](./doc/get_Total_Rain_from_EPA5.md)
+- [latlon_to_kml.py の使用方法](./doc/latlon_to_kml.md)
 
 ## セキュリティ注意事項
 
