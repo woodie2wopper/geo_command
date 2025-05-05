@@ -1,7 +1,7 @@
-# lanlng_to_kml.py 仕様書
+# convert_latlon_to_kml.py 仕様書
 
 ## 概要
-`lanlng_to_kml.py` は、CSVファイルに含まれる地名（`name`）、緯度（`lat`）、経度（`lon`）の情報をもとに、KML（Keyhole Markup Language）フォーマットのXMLファイルを生成するPythonスクリプトです。生成されたKMLファイルは、Google EarthやGoogle Mapsなどで地図上に地点をプロットするために使用できます。
+`convert_latlon_to_kml.py` は、CSVファイルに含まれる地名（`name`）、緯度（`lat`）、経度（`lon`）の情報をもとに、KML（Keyhole Markup Language）フォーマットのXMLファイルを生成するPythonスクリプトです。生成されたKMLファイルは、Google EarthやGoogle Mapsなどで地図上に地点をプロットするために使用できます。
 
 ## 機能
 - CSVファイルから地点情報（`name`, `lat`, `lon`）を読み取る。
@@ -66,7 +66,7 @@
 
 ### コマンドライン引数
 ```bash
-python script/latlon_to_kml.py [オプション]
+python script/convert_latlon_to_kml.py [オプション]
 ```
 
 #### オプション
@@ -77,25 +77,25 @@ python script/latlon_to_kml.py [オプション]
 #### 使用例
 ```bash
 # 基本的な使用方法（標準出力）
-python script/latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv
+python script/convert_latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv
 
 # 複数のCSVファイルを指定
-python script/latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv --input-csv tests/latlon_to_kml/second_data.csv
+python script/convert_latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv --input-csv tests/latlon_to_kml/second_data.csv
 
 # カスタムテンプレートと出力ファイルを指定
-python script/latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv --input-template custom_template.xml --output output.kml
+python script/convert_latlon_to_kml.py --input-csv tests/latlon_to_kml/normal_data.csv --input-template custom_template.xml --output output.kml
 
 # 短いオプション名を使用
-python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests/latlon_to_kml/second_data.csv -o output.kml
+python script/convert_latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests/latlon_to_kml/second_data.csv -o output.kml
 
 # 標準入力から読み込み（テストデータを使用）
-cat tests/latlon_to_kml/normal_data.csv | python script/latlon_to_kml.py -ic - -o stdin_output.kml
+cat tests/latlon_to_kml/normal_data.csv | python script/convert_latlon_to_kml.py -ic - -o stdin_output.kml
 
 # ファイルと標準入力の組み合わせ（テストデータを使用）
-cat tests/latlon_to_kml/second_data.csv | python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic - -o combined_output.kml
+cat tests/latlon_to_kml/second_data.csv | python script/convert_latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic - -o combined_output.kml
 
 # エラーデータの標準入力テスト
-cat tests/latlon_to_kml/error_data.csv | python script/latlon_to_kml.py -ic - -o error_output.kml 2> error.log
+cat tests/latlon_to_kml/error_data.csv | python script/convert_latlon_to_kml.py -ic - -o error_output.kml 2> error.log
 ```
 
 ## プログラムの詳細
@@ -217,22 +217,22 @@ cat tests/latlon_to_kml/error_data.csv | python script/latlon_to_kml.py -ic - -o
 3. **テスト実行方法**
    ```bash
    # 基本的なテスト
-   python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -o output.kml
+   python script/convert_latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -o output.kml
 
    # エラーハンドリングテスト
-   python script/latlon_to_kml.py -ic tests/latlon_to_kml/error_data.csv -o output.kml
+   python script/convert_latlon_to_kml.py -ic tests/latlon_to_kml/error_data.csv -o output.kml
 
    # 複数CSVファイルの合成テスト
-   python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests/latlon_to_kml/second_data.csv -o output.kml
+   python script/convert_latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic tests/latlon_to_kml/second_data.csv -o output.kml
 
    # 標準入力からの読み込みテスト
-   cat tests/latlon_to_kml/normal_data.csv | python script/latlon_to_kml.py -ic - -o stdin_output.kml
+   cat tests/latlon_to_kml/normal_data.csv | python script/convert_latlon_to_kml.py -ic - -o stdin_output.kml
 
    # ファイルと標準入力の組み合わせテスト
-   cat tests/latlon_to_kml/second_data.csv | python script/latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic - -o combined_output.kml
+   cat tests/latlon_to_kml/second_data.csv | python script/convert_latlon_to_kml.py -ic tests/latlon_to_kml/normal_data.csv -ic - -o combined_output.kml
 
    # エラーデータの標準入力テスト
-   cat tests/latlon_to_kml/error_data.csv | python script/latlon_to_kml.py -ic - -o error_output.kml 2> error.log
+   cat tests/latlon_to_kml/error_data.csv | python script/convert_latlon_to_kml.py -ic - -o error_output.kml 2> error.log
    ```
 
 4. **出力の検証**
