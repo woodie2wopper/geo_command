@@ -6,6 +6,12 @@ import csv
 import sys
 from typing import Dict, List, Optional, TextIO
 import xml.etree.ElementTree as ET
+import os
+
+# Google Mapsの制限
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_PLACEMARKS = 2000  # 最大地点数
+MAX_STYLES = 100  # 最大スタイル数
 
 # デフォルトのKMLテンプレート
 DEFAULT_TEMPLATE = '''<?xml version="1.0" encoding="UTF-8"?>
@@ -115,6 +121,38 @@ def process_csv_file(csv_file: str) -> tuple[List[str], List[str]]:
         print(f"エラー: 入力ファイル '{csv_file}' の読み取り権限がありません。", file=sys.stderr)
         sys.exit(1)
 
+def validate_kml_content(kml_content: str) -> None:
+    """KMLの妥当性をチェックします。"""
+    try:
+        # XMLとしてパース可能かチェック
+        root = ET.fromstring(kml_content)
+        
+        # KMLの名前空間を確認
+        if root.tag != '{http://www.opengis.net/kml/2.2}KML':
+            raise ValueError("KMLの名前空間が正しくありません。")
+        
+        # Document要素の存在を確認
+        document = root.find('{http://www.opengis.net/kml/2.2}Document')
+        if document is None:
+            raise ValueError("Document要素が見つかりません。")
+        
+        # ファイルサイズのチェック
+        if len(kml_content.encode('utf-8')) > MAX_FILE_SIZE:
+            raise ValueError(f"KMLファイルのサイズが大きすぎます（最大 {MAX_FILE_SIZE/1024/1024}MB）。")
+        
+        # Placemarkの数をチェック
+        placemarks = document.findall('.//{http://www.opengis.net/kml/2.2}Placemark')
+        if len(placemarks) > MAX_PLACEMARKS:
+            raise ValueError(f"地点の数が多すぎます（最大 {MAX_PLACEMARKS} 地点）。")
+        
+        # Styleの数をチェック
+        styles = document.findall('.//{http://www.opengis.net/kml/2.2}Style')
+        if len(styles) > MAX_STYLES:
+            raise ValueError(f"スタイルの数が多すぎます（最大 {MAX_STYLES} スタイル）。")
+            
+    except ET.ParseError as e:
+        raise ValueError(f"XMLの形式が不正です: {str(e)}")
+
 def main():
     parser = argparse.ArgumentParser(description='CSVファイルからKMLファイルを生成します。')
     parser.add_argument('--input-csv', '-ic', action='append', nargs='*',
@@ -123,6 +161,10 @@ def main():
                       help='カスタムKMLテンプレートファイルのパス')
     parser.add_argument('--output', '-o',
                       help='出力ファイルのパス（指定しない場合は標準出力）')
+    parser.add_argument('--validate', '-v', action='store_true',
+                      help='KMLの妥当性チェックを実行（デフォルト: 有効）')
+    parser.add_argument('--no-validate', action='store_true',
+                      help='KMLの妥当性チェックを無効化')
 
     args = parser.parse_args()
 
@@ -168,6 +210,15 @@ def main():
         styles=''.join(all_styles),
         placemarks=''.join(all_placemarks)
     )
+
+    # KMLの妥当性チェック
+    if not args.no_validate:
+        try:
+            validate_kml_content(kml_content)
+            print("KMLの妥当性チェックが完了しました。", file=sys.stderr)
+        except ValueError as e:
+            print(f"エラー: {str(e)}", file=sys.stderr)
+            sys.exit(4)
 
     # 出力
     if args.output:

@@ -303,3 +303,188 @@ cat tests/latlon_to_kml/error_data.csv | python script/latlon_to_kml.py -ic - -o
    - WARNING: 警告（処理は継続）
    - ERROR: エラー（処理を中断）
 
+## XML検証ツール
+生成されたKMLファイルの妥当性を確認するために、以下のツールを使用できます。
+
+### 1. xmllint（libxml2）
+XMLの妥当性をチェックする基本的なツールです。
+
+#### インストール方法（macOS）
+```bash
+brew install libxml2
+```
+
+#### 使用方法
+```bash
+# 基本的なXML妥当性チェック
+xmllint --noout output.kml
+
+# スキーマ検証（KMLスキーマを使用）
+xmllint --schema http://schemas.opengis.net/kml/2.2.0/ogckml22.xsd --noout output.kml
+```
+
+### 2. xmlstarlet
+XMLの操作と検証が可能な多機能ツールです。
+
+#### インストール方法（macOS）
+```bash
+brew install xmlstarlet
+```
+
+#### 使用方法
+```bash
+# XML妥当性チェック
+xmlstarlet val output.kml
+
+# 特定の要素の数をカウント（名前空間を指定）
+xmlstarlet sel -N kml="http://www.opengis.net/kml/2.2" -t -c "count(//kml:Placemark)" -n output.kml
+xmlstarlet sel -N kml="http://www.opengis.net/kml/2.2" -t -c "count(//kml:Style)" -n output.kml
+
+# 特定の要素の数をカウント（名前空間を指定せず）
+xmlstarlet sel -t -c "count(//*[local-name()='Placemark'])" -n output.kml
+xmlstarlet sel -t -c "count(//*[local-name()='Style'])" -n output.kml
+
+# 名前空間の確認
+xmlstarlet sel -t -c "//*[local-name()='KML']" -n output.kml
+```
+
+### 3. Pythonのlxmlライブラリ
+PythonでXMLの検証を行う場合に使用します。
+
+#### インストール方法
+```bash
+pip install lxml
+```
+
+#### 使用方法
+```python
+from lxml import etree
+
+def validate_kml(file_path):
+    try:
+        # XMLとしてパース
+        tree = etree.parse(file_path)
+        
+        # KMLの名前空間を確認
+        root = tree.getroot()
+        if root.tag != '{http://www.opengis.net/kml/2.2}KML':
+            print("エラー: KMLの名前空間が正しくありません。")
+            return False
+        
+        # ファイルサイズをチェック
+        file_size = os.path.getsize(file_path)
+        if file_size > 5 * 1024 * 1024:  # 5MB
+            print(f"警告: ファイルサイズが大きすぎます（{file_size/1024/1024:.2f}MB）")
+        
+        # Placemarkの数をカウント
+        placemarks = tree.findall('.//{http://www.opengis.net/kml/2.2}Placemark')
+        if len(placemarks) > 2000:
+            print(f"警告: 地点の数が多すぎます（{len(placemarks)}地点）")
+        
+        # Styleの数をカウント
+        styles = tree.findall('.//{http://www.opengis.net/kml/2.2}Style')
+        if len(styles) > 100:
+            print(f"警告: スタイルの数が多すぎます（{len(styles)}スタイル）")
+        
+        print("KMLファイルは有効です。")
+        return True
+        
+    except etree.XMLSyntaxError as e:
+        print(f"エラー: XMLの形式が不正です: {str(e)}")
+        return False
+    except Exception as e:
+        print(f"エラー: {str(e)}")
+        return False
+```
+
+### 4. 検証スクリプト
+以下のシェルスクリプトを使用して、KMLファイルの総合的な検証を行うことができます。
+
+```bash
+#!/bin/bash
+
+# 色付き出力のための関数
+print_error() {
+    echo -e "\033[31mエラー: $1\033[0m"
+}
+
+print_warning() {
+    echo -e "\033[33m警告: $1\033[0m"
+}
+
+print_success() {
+    echo -e "\033[32m$1\033[0m"
+}
+
+# 引数のチェック
+if [ $# -ne 1 ]; then
+    echo "使用方法: $0 <kmlファイル>"
+    exit 1
+fi
+
+KML_FILE=$1
+
+# ファイルの存在チェック
+if [ ! -f "$KML_FILE" ]; then
+    print_error "ファイルが見つかりません: $KML_FILE"
+    exit 1
+fi
+
+# 1. 基本的なXML妥当性チェック
+echo "1. XML妥当性チェック..."
+if xmllint --noout "$KML_FILE" 2>/dev/null; then
+    print_success "XMLの形式は有効です。"
+else
+    print_error "XMLの形式が不正です。"
+    exit 1
+fi
+
+# 2. ファイルサイズチェック
+echo "2. ファイルサイズチェック..."
+FILE_SIZE=$(stat -f%z "$KML_FILE")
+MAX_SIZE=$((5 * 1024 * 1024))  # 5MB
+if [ "$FILE_SIZE" -gt "$MAX_SIZE" ]; then
+    print_warning "ファイルサイズが大きすぎます（$((FILE_SIZE/1024/1024))MB）"
+else
+    print_success "ファイルサイズは適切です（$((FILE_SIZE/1024))KB）。"
+fi
+
+# 3. Placemarkの数チェック
+echo "3. Placemarkの数チェック..."
+PLACEMARK_COUNT=$(xmlstarlet sel -N kml="http://www.opengis.net/kml/2.2" -t -c "count(//kml:Placemark)" -n "$KML_FILE" 2>/dev/null)
+MAX_PLACEMARKS=2000
+if [ "$PLACEMARK_COUNT" -gt "$MAX_PLACEMARKS" ]; then
+    print_warning "地点の数が多すぎます（$PLACEMARK_COUNT地点）"
+else
+    print_success "地点の数は適切です（$PLACEMARK_COUNT地点）。"
+fi
+
+# 4. Styleの数チェック
+echo "4. Styleの数チェック..."
+STYLE_COUNT=$(xmlstarlet sel -N kml="http://www.opengis.net/kml/2.2" -t -c "count(//kml:Style)" -n "$KML_FILE" 2>/dev/null)
+MAX_STYLES=100
+if [ "$STYLE_COUNT" -gt "$MAX_STYLES" ]; then
+    print_warning "スタイルの数が多すぎます（$STYLE_COUNTスタイル）"
+else
+    print_success "スタイルの数は適切です（$STYLE_COUNTスタイル）。"
+fi
+
+# 5. 名前空間チェック
+echo "5. 名前空間チェック..."
+if xmlstarlet sel -t -c "//*[local-name()='KML']" -n "$KML_FILE" 2>/dev/null | grep -q "http://www.opengis.net/kml/2.2"; then
+    print_success "KMLの名前空間は正しいです。"
+else
+    print_error "KMLの名前空間が正しくありません。"
+    exit 1
+fi
+
+print_success "すべてのチェックが完了しました。"
+```
+
+このスクリプトを`check_kml.sh`として保存し、実行権限を付与して使用します：
+
+```bash
+chmod +x check_kml.sh
+./check_kml.sh output.kml
+```
+
