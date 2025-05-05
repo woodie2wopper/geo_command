@@ -15,13 +15,13 @@ MAX_STYLES = 100  # 最大スタイル数
 
 # デフォルトのKMLテンプレート
 DEFAULT_TEMPLATE = '''<?xml version="1.0" encoding="UTF-8"?>
-<KML xmlns="http://www.opengis.net/kml/2.2">
+<kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>調査地点</name>
     {styles}
     {placemarks}
   </Document>
-</KML>'''
+</kml>'''
 
 def validate_lat_lon(lat: float, lon: float) -> bool:
     """緯度経度の値が有効かどうかを検証します。"""
@@ -55,6 +55,8 @@ def create_placemark(name: str, lat: float, lon: float, elevation: Optional[floa
     coords = f"{lon},{lat}"
     if elevation is not None:
         coords += f",{elevation}"
+    else:
+        coords += ",0"  # 標高が指定されていない場合は0を設定
     
     style_url = f'<styleUrl>#icon{color}</styleUrl>' if color else ''
     
@@ -128,7 +130,7 @@ def validate_kml_content(kml_content: str) -> None:
         root = ET.fromstring(kml_content)
         
         # KMLの名前空間を確認
-        if root.tag != '{http://www.opengis.net/kml/2.2}KML':
+        if root.tag != '{http://www.opengis.net/kml/2.2}kml':
             raise ValueError("KMLの名前空間が正しくありません。")
         
         # Document要素の存在を確認
