@@ -204,3 +204,7 @@ credentials.json
 
 .specstory/
 .cursorindexingignore
+
+# テストデータ
+tests/latlon_to_kml/
+output.kml
